@@ -2,35 +2,11 @@
   "version": 2,
   "builds": [
     {
-      "src": "client/package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
-    },
-    {
-      "src": "server/server.js",
+      "src": "server.js",
       "use": "@vercel/node"
     }
   ],
-  "rewrites": [
-    { "source": "/api/:path*", "destination": "/server/server.js" },
-    { "source": "/(.*)",       "destination": "/index.html" }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options",        "value": "DENY" },
-        { "key": "X-XSS-Protection",       "value": "1; mode=block" },
-        { "key": "Referrer-Policy",        "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy",     "value": "camera=(), microphone=(), geolocation=()" }
-      ]
-    },
-    {
-      "source": "/assets/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    }
+  "routes": [
+    { "src": "/(.*)", "dest": "server.js" }
   ]
 }
