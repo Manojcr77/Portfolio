@@ -22,12 +22,10 @@
     "three": "^0.165.0"
   },
   "devDependencies": {
-    "@rollup/rollup-win32-x64-msvc": "^4.59.0",
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.4",
-    "vite": "^5.2.12",
-    "vite-plugin-compression": "^0.5.1"
+    "vite": "^5.2.12"
   }
 }
