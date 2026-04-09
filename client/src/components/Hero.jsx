@@ -29,9 +29,9 @@ export default function Hero() {
 
   useEffect(() => {
     API.get("/resume").then((res) => {
-      if (res.data?.path) {
-  // Force proper PDF download from Cloudinary
-  const url = res.data.path.replace("/upload/", "/upload/fl_attachment/")
+     if (res.data?.path) {
+  let url = res.data.path
+  if (!url.endsWith(".pdf")) url = url + ".pdf"
   setResumeUrl(url)
 }
     }).catch(() => {})
