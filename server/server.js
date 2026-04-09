@@ -75,7 +75,7 @@ async function connectDB() {
   await ensureAdmin()
 }
 
-// ── Routes (wrapped with DB connect middleware)
+// ── Connect DB before every request
 app.use(async (req, res, next) => {
   try {
     await connectDB()
@@ -86,6 +86,7 @@ app.use(async (req, res, next) => {
   }
 })
 
+// ── Routes
 app.use("/api/auth",    authLimiter,    require("./routes/auth"))
 app.use("/api/about",                   require("./routes/about"))
 app.use("/api/skills",                  require("./routes/skills"))
@@ -135,5 +136,5 @@ if (isDev) {
   app.listen(PORT, () => console.log("🚀  Server running on port " + PORT))
 }
 
-// ── Vercel needs this
+// ── Vercel export
 module.exports = app
