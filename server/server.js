@@ -2,7 +2,6 @@ const express       = require("express")
 const mongoose      = require("mongoose")
 const cors          = require("cors")
 const dotenv        = require("dotenv")
-const path          = require("path")
 const helmet        = require("helmet")
 const rateLimit     = require("express-rate-limit")
 const mongoSanitize = require("express-mongo-sanitize")
@@ -12,11 +11,10 @@ const dns           = require("dns")
 dns.setDefaultResultOrder("ipv4first")
 dotenv.config()
 
-if (!process.env.MONGO_URI)   throw new Error("MONGO_URI is required")
-if (!process.env.JWT_SECRET)  throw new Error("JWT_SECRET is required")
+if (!process.env.MONGO_URI)  throw new Error("MONGO_URI is required")
+if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET is required")
 
-const app  = express()
-const PORT = process.env.PORT || 5000
+const app   = express()
 const isDev = process.env.NODE_ENV !== "production"
 
 // ── Security headers
@@ -30,7 +28,6 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // allow server-to-server / curl in dev (no origin)
     if (!origin && isDev) return callback(null, true)
     if (origin && allowedOrigins.includes(origin)) return callback(null, true)
     callback(new Error("Not allowed by CORS"))
@@ -67,7 +64,28 @@ const generalLimiter = rateLimit({
 
 app.use(generalLimiter)
 
-// ── Routes
+// ── MongoDB connection (cached for serverless)
+let isConnected = false
+
+async function connectDB() {
+  if (isConnected) return
+  await mongoose.connect(process.env.MONGO_URI)
+  isConnected = true
+  console.log("✅  MongoDB connected")
+  await ensureAdmin()
+}
+
+// ── Routes (wrapped with DB connect middleware)
+app.use(async (req, res, next) => {
+  try {
+    await connectDB()
+    next()
+  } catch (err) {
+    console.error("❌  DB connection failed:", err.message)
+    res.status(500).json({ message: "Database connection failed" })
+  }
+})
+
 app.use("/api/auth",    authLimiter,    require("./routes/auth"))
 app.use("/api/about",                   require("./routes/about"))
 app.use("/api/skills",                  require("./routes/skills"))
@@ -85,12 +103,12 @@ app.use((err, req, res, next) => {
   res.status(status).json({ message: isDev ? err.message : "Something went wrong" })
 })
 
-// ── Auto-create admin if not exists
+// ── Auto-create admin
 const User = require("./models/User")
 
 async function ensureAdmin() {
   try {
-    const email    = process.env.ADMIN_EMAIL    || "admin@manoj.dev"
+    const email    = process.env.ADMIN_EMAIL || "admin@manoj.dev"
     const password = process.env.ADMIN_PASSWORD
 
     if (!password) {
@@ -104,19 +122,18 @@ async function ensureAdmin() {
       await User.create({ name: "Admin", email, password: hashed, role: "admin", isAdmin: true })
       console.log("✅  Admin user created →", email)
     } else {
-      console.log("ℹ️   Admin already exists, skipping")
+      console.log("ℹ️  Admin already exists, skipping")
     }
   } catch (err) {
     console.error("❌  ensureAdmin error:", err.message)
   }
 }
 
-// ── MongoDB + Start server
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(async () => {
-    console.log("✅  MongoDB connected")
-    await ensureAdmin()
-    app.listen(PORT, () => console.log("🚀  Server running on port " + PORT))
-  })
-  .catch((err) => { console.error("❌  MongoDB error:", err); process.exit(1) })
+// ── Local dev only
+if (isDev) {
+  const PORT = process.env.PORT || 5000
+  app.listen(PORT, () => console.log("🚀  Server running on port " + PORT))
+}
+
+// ── Vercel needs this
+module.exports = app
