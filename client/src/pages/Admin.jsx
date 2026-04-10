@@ -1,11 +1,11 @@
-// pages/Admin.jsx — Full admin dashboard: messages, about, skills, projects, resume
+// pages/Admin.jsx — Full admin dashboard: messages, about, skills, projects, resume, change password
 
 import { useEffect, useState } from "react"
 import toast from "react-hot-toast"
 import {
   FiLogOut, FiMail, FiUser, FiCode, FiCpu,
   FiPlus, FiTrash2, FiSave, FiUpload, FiFileText,
-  FiExternalLink, FiRefreshCw
+  FiExternalLink, FiRefreshCw, FiLock, FiEye, FiEyeOff
 } from "react-icons/fi"
 import API from "../utils/api"
 import ResumeManager from "../components/admin/ResumeManager"
@@ -29,7 +29,7 @@ export default function Admin() {
   useEffect(() => {
     const token = localStorage.getItem("token")
     if (!token) {
-      window.location.replace("/")  // ← no token = go back to homepage
+      window.location.replace("/")
     }
   }, [])
 
@@ -48,6 +48,11 @@ export default function Admin() {
     title: "", tech: "", description: "", github: "", live: ""
   })
 
+  // Change password state
+  const [pwForm,    setPwForm]    = useState({ current: "", next: "", confirm: "" })
+  const [pwLoading, setPwLoading] = useState(false)
+  const [showPw,    setShowPw]    = useState({ current: false, next: false, confirm: false })
+
   useEffect(() => {
     fetchAll()
   }, [])
@@ -63,8 +68,7 @@ export default function Admin() {
   const fetchMessages = async () => {
     try {
       const res = await API.get("/contact")
-      setMessages(Array
-        .isArray(res.data) ? res.data : [])
+      setMessages(Array.isArray(res.data) ? res.data : [])
     } catch { setMessages([]) }
   }
 
@@ -158,7 +162,6 @@ export default function Admin() {
     } catch { toast.error("Failed to add project") }
     finally { setLoading(false) }
   }
-  
 
   const deleteProject = async (id) => {
     setLoading(true)
@@ -170,11 +173,32 @@ export default function Admin() {
     finally { setLoading(false) }
   }
 
-// ✅ Fixed — redirect to home instead:
-const logout = () => {
-  localStorage.removeItem("token")
-  window.location.href = "/"
-}
+  /* ── Change Password ──────────────────────────────────────────────────── */
+  const changePassword = async () => {
+    const { current, next, confirm } = pwForm
+    if (!current || !next || !confirm) { toast.error("All password fields are required"); return }
+    if (next.length < 6)              { toast.error("New password must be at least 6 characters"); return }
+    if (next !== confirm)             { toast.error("New passwords do not match"); return }
+
+    setPwLoading(true)
+    try {
+      await API.put("/auth/change-password", { currentPassword: current, newPassword: next })
+      toast.success("Password changed! Logging you out…")
+      localStorage.removeItem("token")
+      setTimeout(() => { window.location.href = "/" }, 1500)
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to change password")
+    } finally {
+      setPwLoading(false)
+    }
+  }
+
+  /* ── Logout ───────────────────────────────────────────────────────────── */
+  const logout = () => {
+    localStorage.removeItem("token")
+    window.location.href = "/"
+  }
+
   return (
     <div className="admin-surface min-h-screen">
 
@@ -361,6 +385,50 @@ const logout = () => {
 
         {/* ── RESUME ─────────────────────────────────────────────────────── */}
         <ResumeManager />
+
+        {/* ── CHANGE PASSWORD ────────────────────────────────────────────── */}
+        <Section icon={FiLock} title="Change Password">
+          <p className="text-xs text-gray-400 mb-4">
+            After saving, you will be logged out automatically. Use the new password to log back in.
+            The old password will <strong>no longer work</strong>.
+          </p>
+
+          {[
+            { key: "current", label: "Current Password",    placeholder: "Enter your current password" },
+            { key: "next",    label: "New Password",         placeholder: "At least 6 characters" },
+            { key: "confirm", label: "Confirm New Password", placeholder: "Re-enter new password" },
+          ].map(({ key, label, placeholder }) => (
+            <div key={key} className="mb-3">
+              <label className="block text-xs text-gray-500 mb-1">{label}</label>
+              <div className="relative">
+                <input
+                  type={showPw[key] ? "text" : "password"}
+                  value={pwForm[key]}
+                  onChange={(e) => setPwForm({ ...pwForm, [key]: e.target.value })}
+                  placeholder={placeholder}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-400 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw({ ...showPw, [key]: !showPw[key] })}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPw[key] ? <FiEyeOff size={14} /> : <FiEye size={14} />}
+                </button>
+              </div>
+            </div>
+          ))}
+
+          <button
+            onClick={changePassword}
+            disabled={pwLoading}
+            className="mt-2 flex items-center gap-1.5 bg-red-600 text-white px-5 py-2.5 rounded-xl hover:bg-red-700 text-sm transition disabled:opacity-50"
+          >
+            <FiLock size={13} />
+            {pwLoading ? "Updating…" : "Update Password"}
+          </button>
+        </Section>
+
       </div>
     </div>
   )
