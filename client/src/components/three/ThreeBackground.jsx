@@ -3,141 +3,226 @@ import { Points, PointMaterial, Float, MeshDistortMaterial } from "@react-three/
 import { useRef, useMemo, useState, useEffect } from "react"
 import * as THREE from "three"
 
-function ParticleField() {
+// ── Star field (galaxy background) ──────────────────────────────────────────
+function StarField() {
   const ref = useRef()
   const positions = useMemo(() => {
-    const count = 7000
+    const count = 6000
     const arr = new Float32Array(count * 3)
-    for (let i = 0; i < count * 3; i++) arr[i] = (Math.random() - 0.5) * 40
+    for (let i = 0; i < count; i++) {
+      const r = 10 + Math.random() * 40
+      const theta = Math.random() * Math.PI * 2
+      const phi = Math.acos(2 * Math.random() - 1)
+      arr[i * 3]     = r * Math.sin(phi) * Math.cos(theta)
+      arr[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) * 0.3
+      arr[i * 3 + 2] = r * Math.cos(phi)
+    }
     return arr
   }, [])
   useFrame(({ clock }) => {
-    if (ref.current) {
-      ref.current.rotation.y = clock.getElapsedTime() * 0.04
-      ref.current.rotation.x = Math.sin(clock.getElapsedTime() * 0.02) * 0.1
-    }
+    if (ref.current) ref.current.rotation.y = clock.getElapsedTime() * 0.012
   })
   return (
     <Points ref={ref} positions={positions} stride={3}>
-      <PointMaterial transparent color="#22d3ee" size={0.03} sizeAttenuation depthWrite={false} opacity={0.7} />
+      <PointMaterial transparent color="#e2e8f0" size={0.04} sizeAttenuation depthWrite={false} opacity={0.7} />
     </Points>
   )
 }
 
-function NeonRing({ radius, color, speed, tiltX = 0, tiltZ = 0 }) {
+// ── Galaxy spiral dust ───────────────────────────────────────────────────────
+function GalaxyDust() {
   const ref = useRef()
-  useFrame(({ clock }) => {
-    if (ref.current) ref.current.rotation.y = clock.getElapsedTime() * speed
-  })
-  const geo = useMemo(() => {
-    const points = []
-    for (let i = 0; i <= 128; i++) {
-      const angle = (i / 128) * Math.PI * 2
-      points.push(new THREE.Vector3(Math.cos(angle) * radius, Math.sin(angle) * radius * 0.3, Math.sin(angle) * radius))
+  const positions = useMemo(() => {
+    const count = 3000
+    const arr = new Float32Array(count * 3)
+    for (let i = 0; i < count; i++) {
+      const arm = Math.floor(Math.random() * 3)
+      const t = Math.random()
+      const angle = arm * (Math.PI * 2 / 3) + t * Math.PI * 3
+      const radius = 2 + t * 14
+      const spread = (1 - t) * 1.5
+      arr[i * 3]     = Math.cos(angle) * radius + (Math.random() - 0.5) * spread
+      arr[i * 3 + 1] = (Math.random() - 0.5) * 0.6
+      arr[i * 3 + 2] = Math.sin(angle) * radius + (Math.random() - 0.5) * spread
     }
-    return new THREE.BufferGeometry().setFromPoints(points)
-  }, [radius])
+    return arr
+  }, [])
+  useFrame(({ clock }) => {
+    if (ref.current) ref.current.rotation.y = clock.getElapsedTime() * 0.025
+  })
   return (
-    <line ref={ref} geometry={geo} rotation={[tiltX, 0, tiltZ]}>
-      <lineBasicMaterial color={color} transparent opacity={0.18} />
-    </line>
+    <Points ref={ref} positions={positions} stride={3}>
+      <PointMaterial transparent color="#22d3ee" size={0.055} sizeAttenuation depthWrite={false} opacity={0.45} />
+    </Points>
   )
 }
 
-function FloatingSphere({ position, color, speed = 1, distort = 0.4, scale = 1 }) {
-  return (
-    <Float speed={speed} rotationIntensity={0.8} floatIntensity={2.5}>
-      <mesh position={position} scale={scale}>
-        <sphereGeometry args={[1, 64, 64]} />
-        <MeshDistortMaterial color={color} distort={distort} speed={3} transparent opacity={0.14} />
-      </mesh>
-    </Float>
-  )
-}
-
-function TorusKnot() {
+// ── Sun / star center ────────────────────────────────────────────────────────
+function Sun() {
   const ref = useRef()
+  const glowRef = useRef()
   useFrame(({ clock }) => {
     if (ref.current) {
-      ref.current.rotation.x = clock.getElapsedTime() * 0.10
-      ref.current.rotation.y = clock.getElapsedTime() * 0.15
-      ref.current.rotation.z = clock.getElapsedTime() * 0.05
+      ref.current.rotation.y = clock.getElapsedTime() * 0.08
+      ref.current.rotation.x = clock.getElapsedTime() * 0.05
+    }
+    if (glowRef.current) {
+      const pulse = Math.sin(clock.getElapsedTime() * 1.2) * 0.08
+      glowRef.current.scale.setScalar(1 + pulse)
     }
   })
   return (
-    <mesh ref={ref} position={[4, -1, -5]} scale={1.4}>
-      <torusKnotGeometry args={[1, 0.3, 128, 20]} />
-      <meshStandardMaterial color="#a78bfa" wireframe transparent opacity={0.18} />
-    </mesh>
-  )
-}
-
-function OrbitingCubes() {
-  const group = useRef()
-  useFrame(({ clock }) => {
-    if (group.current) group.current.rotation.y = clock.getElapsedTime() * 0.25
-  })
-  const cubes = useMemo(() =>
-    Array.from({ length: 8 }, (_, i) => {
-      const angle = (i / 8) * Math.PI * 2
-      return {
-        x: Math.cos(angle) * 8,
-        z: Math.sin(angle) * 8,
-        y: Math.sin(angle * 2) * 1.5,
-        size: 0.15 + Math.random() * 0.2,
-        color: i % 2 === 0 ? "#22d3ee" : "#a78bfa",
-      }
-    }), [])
-  return (
-    <group ref={group} position={[0, 0, -6]}>
-      {cubes.map((c, i) => (
-        <mesh key={i} position={[c.x, c.y, c.z]}>
-          <boxGeometry args={[c.size, c.size, c.size]} />
-          <meshStandardMaterial color={c.color} transparent opacity={0.3} wireframe />
-        </mesh>
-      ))}
+    <group position={[0, 0, -4]}>
+      {/* Corona glow */}
+      <mesh ref={glowRef}>
+        <sphereGeometry args={[1.6, 32, 32]} />
+        <meshBasicMaterial color="#ff9922" transparent opacity={0.06} />
+      </mesh>
+      {/* Sun surface */}
+      <mesh ref={ref}>
+        <sphereGeometry args={[0.9, 64, 64]} />
+        <MeshDistortMaterial color="#ffcc44" distort={0.25} speed={2} transparent opacity={0.95} />
+      </mesh>
     </group>
   )
 }
 
-function PulsingGrid() {
-  const ref = useRef()
+// ── Single orbiting planet ───────────────────────────────────────────────────
+function Planet({ orbitRadius, orbitSpeed, orbitTilt, startAngle, size, color, distort = 0.2, hasRing = false, hasMoon = false }) {
+  const groupRef  = useRef()
+  const planetRef = useRef()
+  const moonRef   = useRef()
+
   useFrame(({ clock }) => {
-    if (ref.current) {
-      ref.current.material.opacity = 0.04 + Math.sin(clock.getElapsedTime() * 0.8) * 0.02
+    const t = clock.getElapsedTime()
+    if (groupRef.current) {
+      const angle = startAngle + t * orbitSpeed
+      groupRef.current.position.x = Math.cos(angle) * orbitRadius
+      groupRef.current.position.z = Math.sin(angle) * orbitRadius - 4
+      groupRef.current.position.y = Math.sin(angle) * orbitRadius * Math.tan(orbitTilt)
+    }
+    if (planetRef.current) {
+      planetRef.current.rotation.y = t * 0.4
+    }
+    if (moonRef.current) {
+      const ma = t * 1.4
+      moonRef.current.position.x = Math.cos(ma) * (size * 2.2)
+      moonRef.current.position.y = Math.sin(ma) * (size * 2.2) * 0.4
     }
   })
+
   return (
-    <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]} position={[0, -7, 0]}>
-      <planeGeometry args={[60, 60, 30, 30]} />
-      <meshBasicMaterial color="#22d3ee" wireframe transparent opacity={0.05} />
-    </mesh>
+    <group ref={groupRef}>
+      {/* Planet */}
+      <Float speed={0.8} floatIntensity={0.3}>
+        <mesh ref={planetRef}>
+          <sphereGeometry args={[size, 48, 48]} />
+          <MeshDistortMaterial color={color} distort={distort} speed={1.5} transparent opacity={0.92} />
+        </mesh>
+
+        {/* Ring system */}
+        {hasRing && (
+          <mesh rotation={[Math.PI / 3, 0, 0]}>
+            <torusGeometry args={[size * 1.8, size * 0.18, 3, 64]} />
+            <meshBasicMaterial color={color} transparent opacity={0.25} />
+          </mesh>
+        )}
+
+        {/* Moon */}
+        {hasMoon && (
+          <mesh ref={moonRef}>
+            <sphereGeometry args={[size * 0.32, 16, 16]} />
+            <meshStandardMaterial color="#94a3b8" transparent opacity={0.85} />
+          </mesh>
+        )}
+      </Float>
+
+      {/* Planet glow */}
+      <mesh>
+        <sphereGeometry args={[size * 1.5, 16, 16]} />
+        <meshBasicMaterial color={color} transparent opacity={0.06} />
+      </mesh>
+    </group>
   )
 }
 
-function ShootingStar() {
-  const ref = useRef()
-  const startX = useMemo(() => (Math.random() - 0.5) * 30, [])
-  const startY = useMemo(() => 6 + Math.random() * 4, [])
-  useFrame(({ clock }) => {
-    if (ref.current) {
-      const t = (clock.getElapsedTime() * 0.4) % 1
-      ref.current.position.x = startX - t * 20
-      ref.current.position.y = startY - t * 12
-      ref.current.position.z = -8
-      ref.current.material.opacity = t < 0.1 ? t * 10 : t > 0.8 ? (1 - t) * 5 : 0.7
+// ── Orbit ring (visible ellipse) ─────────────────────────────────────────────
+function OrbitRing({ radius, tilt, color = "#ffffff" }) {
+  const points = useMemo(() => {
+    const pts = []
+    for (let i = 0; i <= 128; i++) {
+      const a = (i / 128) * Math.PI * 2
+      pts.push(new THREE.Vector3(Math.cos(a) * radius, Math.sin(a) * radius * Math.tan(tilt), Math.sin(a) * radius))
     }
+    return pts
+  }, [radius, tilt])
+  const geo = useMemo(() => new THREE.BufferGeometry().setFromPoints(points), [points])
+  return (
+    <line geometry={geo} position={[0, 0, -4]}>
+      <lineBasicMaterial color={color} transparent opacity={0.08} />
+    </line>
+  )
+}
+
+// ── Asteroid belt ────────────────────────────────────────────────────────────
+function AsteroidBelt() {
+  const ref = useRef()
+  const positions = useMemo(() => {
+    const count = 800
+    const arr = new Float32Array(count * 3)
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const r = 5.5 + Math.random() * 1.2
+      arr[i * 3]     = Math.cos(angle) * r
+      arr[i * 3 + 1] = (Math.random() - 0.5) * 0.3
+      arr[i * 3 + 2] = Math.sin(angle) * r
+    }
+    return arr
+  }, [])
+  useFrame(({ clock }) => {
+    if (ref.current) ref.current.rotation.y = clock.getElapsedTime() * 0.018
+  })
+  return (
+    <Points ref={ref} positions={positions} stride={3} position={[0, 0, -4]}>
+      <PointMaterial transparent color="#94a3b8" size={0.04} sizeAttenuation depthWrite={false} opacity={0.5} />
+    </Points>
+  )
+}
+
+// ── Shooting stars ───────────────────────────────────────────────────────────
+function ShootingStar({ offset, startX, startY, startZ }) {
+  const ref = useRef()
+  useFrame(({ clock }) => {
+    if (!ref.current) return
+    const t = (clock.getElapsedTime() * 0.3 + offset) % 3
+    const progress = t / 3
+    ref.current.position.x = startX - progress * 18
+    ref.current.position.y = startY - progress * 10
+    ref.current.position.z = startZ
+    ref.current.material.opacity = progress < 0.1
+      ? progress * 10
+      : progress > 0.7
+        ? (1 - progress) * 3.3
+        : 0.85
   })
   return (
     <mesh ref={ref}>
-      <sphereGeometry args={[0.04, 8, 8]} />
-      <meshBasicMaterial color="#ffffff" transparent opacity={0.7} />
+      <sphereGeometry args={[0.06, 6, 6]} />
+      <meshBasicMaterial color="#ffffff" transparent opacity={0} />
     </mesh>
   )
 }
 
+// ── Main export ──────────────────────────────────────────────────────────────
 export default function ThreeBackground() {
   const [mounted, setMounted] = useState(false)
+  const shootingStars = useMemo(() => Array.from({ length: 5 }, (_, i) => ({
+    offset: i * 1.8,
+    startX: (Math.random() - 0.5) * 30,
+    startY: 5 + Math.random() * 6,
+    startZ: -2 - Math.random() * 6,
+  })), [])
+
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true), 100)
     return () => clearTimeout(timer)
@@ -146,30 +231,40 @@ export default function ThreeBackground() {
 
   return (
     <Canvas
-      camera={{ position: [0, 0, 10], fov: 60 }}
+      camera={{ position: [0, 4, 14], fov: 55 }}
       style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", zIndex: -3, pointerEvents: "none" }}
       gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
       dpr={[1, 1.5]}
     >
-      <ambientLight intensity={0.5} />
-      <pointLight position={[10, 10, 10]}  color="#22d3ee" intensity={1.2} />
-      <pointLight position={[-10, -5, 5]}  color="#a78bfa" intensity={0.9} />
-      <pointLight position={[0, 8, -8]}    color="#39ff14" intensity={0.4} />
+      <ambientLight intensity={0.3} />
+      <pointLight position={[0, 0, -4]}  color="#ffcc44" intensity={3}   distance={30} />
+      <pointLight position={[0, 8, 2]}   color="#22d3ee" intensity={0.5} />
+      <pointLight position={[-8, -4, 0]} color="#a78bfa" intensity={0.4} />
 
-      <ParticleField />
-      <TorusKnot />
-      <OrbitingCubes />
-      <PulsingGrid />
-      <ShootingStar />
+      {/* Background */}
+      <StarField />
+      <GalaxyDust />
 
-      <NeonRing radius={12} color="#22d3ee" speed={0.12}  tiltX={0.4} />
-      <NeonRing radius={9}  color="#a78bfa" speed={-0.09} tiltX={-0.3} tiltZ={0.2} />
-      <NeonRing radius={15} color="#39ff14" speed={0.06}  tiltX={0.6}  tiltZ={0.4} />
+      {/* Solar system */}
+      <Sun />
+      <AsteroidBelt />
 
-      <FloatingSphere position={[-6, 3,  -4]} color="#22d3ee" speed={1.0} distort={0.6} scale={2.2} />
-      <FloatingSphere position={[6, -2,  -6]} color="#a78bfa" speed={1.5} distort={0.4} scale={2.6} />
-      <FloatingSphere position={[0, -4,  -3]} color="#39ff14" speed={0.8} distort={0.7} scale={1.1} />
-      <FloatingSphere position={[-3, 5,  -8]} color="#f472b6" speed={0.6} distort={0.5} scale={1.4} />
+      {/* Shooting stars */}
+      {shootingStars.map((s, i) => <ShootingStar key={i} {...s} />)}
+
+      {/* Orbit rings */}
+      <OrbitRing radius={2.2} tilt={0.04} color="#22d3ee" />
+      <OrbitRing radius={3.6} tilt={0.07} color="#f472b6" />
+      <OrbitRing radius={5.0} tilt={0.03} color="#22d3ee" />
+      <OrbitRing radius={6.8} tilt={0.10} color="#a78bfa" />
+      <OrbitRing radius={8.5} tilt={0.05} color="#39ff14" />
+
+      {/* Planets */}
+      <Planet orbitRadius={2.2} orbitSpeed={0.35} orbitTilt={0.04} startAngle={0}   size={0.22} color="#22d3ee" distort={0.3}  />
+      <Planet orbitRadius={3.6} orbitSpeed={0.22} orbitTilt={0.07} startAngle={1.2} size={0.32} color="#f472b6" distort={0.2}  hasMoon={true} />
+      <Planet orbitRadius={5.0} orbitSpeed={0.14} orbitTilt={0.03} startAngle={2.8} size={0.28} color="#22d3ee" distort={0.15} />
+      <Planet orbitRadius={6.8} orbitSpeed={0.09} orbitTilt={0.10} startAngle={4.1} size={0.48} color="#a78bfa" distort={0.25} hasRing={true} hasMoon={true} />
+      <Planet orbitRadius={8.5} orbitSpeed={0.06} orbitTilt={0.05} startAngle={0.7} size={0.36} color="#39ff14" distort={0.2}  />
     </Canvas>
   )
 }
